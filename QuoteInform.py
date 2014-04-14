@@ -29,36 +29,44 @@ class QuoteInformer(QuoteListener):
         self.cmpPrice = cmpPrice
         self.preClose = 0.0
         self.lastPrice = 0.0
+        self.lowPrice = 0.0
+        self.highPrice = 0.0
         self.playThread = 0
-        self.status = 0
+        self.level = 0
 
     def OnRecvQuote(self, quoteData):
         if cmp(self.stockid, quoteData.id) == 0 :
-            self.preClose = string.atof(quoteData.preClose) 
+            self.preClose = string.atof(quoteData.preClose)
+            newPrice = string.atof(quoteData.lastPrice)
+            low = string.atof(quoteData.lowPrice)
+            high = string.atof(quoteData.highPrice)            
             if self.cmpPrice == 0.0 :
-                self.cmpPrice = string.atof(quoteData.preClose) 
-            self.ComparePrice(string.atof(quoteData.lastPrice), string.atof(quoteData.lowPrice), string.atof(quoteData.highPrice))
-
-    def playLowSound(self):
-        if self.status != -1:
-            self.status = -1
+                self.cmpPrice = string.atof(quoteData.preClose)
+            else:    
+                self.DoDifference(newPrice, low, high)
+            self.lastPrice = newPrice
+            self.lowPrice = low
+            self.highPrice = high
+            self.printInfo()
+            
+    def DoDifference(self, newPrice, lowPrice, highPrice):pass
+            
+    def playSound(self, level):
+        if self.level != level:
+            self.level = level
             self.playThread = PlayThread(3)
-            self.playThread.playSound("wav\level_up.wav")
-
-    def playHighSound(self):
-        if self.status != 1:
-            self.status = 1
-            self.playThread = PlayThread(3)
-            self.playThread.playSound("wav\msg.wav")
+            if level < 0:
+                self.playThread.playSound("wav\level_up.wav")
+            else:
+                self.playThread.playSound("wav\msg.wav")
             
     def normalArea(self):
-        self.status = 0
+        self.level = 0
 
-    def printInfo(self, curper, lowPrice, highPrice) :
-        #print "stockid  curper  lastPrice  cmpPrice  preClose  lowPrice  highPrice"
-        print "%s  %.3f%%  %.3f  %.3f  pre:%.3f  low:%.3f  high:%.3f  %d" % (self.stockid, curper, self.lastPrice, self.cmpPrice, self.preClose, lowPrice, highPrice, self.status)
-
-    def ComparePrice(self, lastPrice, lowPrice, highPrice): pass
+    def printInfo(self) :
+        curper = (self.lastPrice - self.cmpPrice) / self.cmpPrice * 100
+        diffv = self.lastPrice - self.cmpPrice
+        print "%s  %.3f%%  %.3f[%.3f]  %.3f  pre:%.3f  l:%.3f  h:%.3f  %d" % (self.stockid, curper, self.lastPrice, diffv, self.cmpPrice, self.preClose, self.lowPrice, self.highPrice, self.level)
 
 class QuotePercentInformer(QuoteInformer):
     def __init__(self, stock, cmpPrice = '0.0', lowper = '-2', highper = '2'):
@@ -66,16 +74,14 @@ class QuotePercentInformer(QuoteInformer):
         self.lowper = string.atof(lowper)
         self.highper = string.atof(highper)
             
-    def ComparePrice(self, lastPrice, lowPrice, highPrice):
-        self.lastPrice = lastPrice
+    def DoDifference(self, newPrice, lowPrice, highPrice):
         curper = (self.lastPrice - self.cmpPrice) / self.cmpPrice * 100
-        self.printInfo(curper, lowPrice, highPrice)
         if curper <= self.lowper :
-            self.playLowSound()
+            self.playSound(-1)
         elif curper >= self.highper :
-            self.playHighSound()
+            self.playHighSound(1)
         else:
-            self.normalArea()
+            self.playSound(0)
 
 class QuoteDifferenceValueInformer(QuoteInformer):
     def __init__(self, stock, cmpPrice = '0.0', lowdiff = '-1.1', highdiff = '1.1'):
@@ -83,34 +89,42 @@ class QuoteDifferenceValueInformer(QuoteInformer):
         self.lowdiff = string.atof(lowdiff)
         self.highdiff = string.atof(highdiff)
             
-    def ComparePrice(self, lastPrice, lowPrice, highPrice):
-        self.lastPrice = lastPrice
-        curper = (self.lastPrice - self.cmpPrice) / self.cmpPrice * 100
+    def DoDifference(self, lastPrice, lowPrice, highPrice):
         diffv = self.lastPrice - self.cmpPrice
-        self.printInfo(curper, lowPrice, highPrice)
-        #print "diff:%.3f  lowdiff:%.3f  highdiff:%.3f" % (diffv, self.lowdiff, self.highdiff)
+        print "%.3f %.3f" % (diffv, self.lowdiff)
         if diffv <= self.lowdiff :
-            self.playLowSound()
+            self.playSound(-1)
         elif diffv >= self.highdiff :
-            self.playHighSound()
+            self.playSound(1)
         else:
-            self.normalArea()
-        
-def testInform():
-    d = QuoteData()
-    d.stockName = "ETF300"
-    d.stockid = "510300"
-    d.lastPrice = "2.130"
-    d.preClose = "2.108"
-    d.openPrice = "2.084"
-    d.lowPrice = "2.078"
-    d.highPrice = "2.160"
-    d.avgPrice = "2.125"
-    inform = QuotePercentInformer("510300")
-    inform.OnQuoteRecv(d)
-    d.lastPrice = "2.530"
-    inform.OnQuoteRecv(d);
-    sleep(5)
-    d.lastPrice = "1.981"
-    inform.OnQuoteRecv(d);
+            self.playSound(0)
+
+class QuoteDiffValuesInformer(QuoteInformer):
+    def __init__(self, stock, lowDiffValues, highDiffVAlues, cmpPrice = '0.0' ):
+        QuoteInformer.__init__(self, stock, string.atof(cmpPrice))
+        self.lowDiffValues = lowDiffValues
+        self.highDiffVAlues = highDiffVAlues
+        print self.lowDiffValues
+        print self.highDiffVAlues 
+            
+    def DoDifference(self, lastPrice, lowPrice, highPrice):
+        diffv = self.lastPrice - self.cmpPrice
+        level = self.ComputeLevel(diffv)
+        self.playSound(level)
+            
+    def ComputeLevel(self, diffPrice):
+        if diffPrice < 0:
+            i = 0
+            for lv in self.lowDiffValues:
+                if diffPrice > lv:
+                    return i
+                i -= 1
+        else:
+            i = 0
+            for lv in self.highDiffVAlues:
+                if diffPrice < lv:
+                    return i
+                i += 1
+        return 0
+
     

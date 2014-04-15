@@ -10,8 +10,9 @@ def runNoThread(stockids):
     s = QuoteSourceSina(stockids)
     #s = QuoteSourceQtimg(stockids)
     #s.addListener(QuotePrinter())
-    s.addListener(QuoteDifferenceValueInformer('510050', '0.0', '-0.008', '0.005'))
-    s.addListener(QuoteSaveToCSV('600006'))
+    #s.addListener(QuoteDifferenceValueInformer('510050', '0.0', '-0.008', '0.005'))
+    s.addListener(QuoteSaveToCSV('510050'))
+    s.addListener(QuoteDiffValuesInformer('510050', [-0.009,-0.019,-0.029], [0.009, 0.019, 0.029], '0.0'))
     try:
         while True:
             s.queryStock()
@@ -42,13 +43,8 @@ def runWithThread(stockids):
 
         
 if __name__ == '__main__':
-    #runNoThread('sh600006,sh510050')
+    runNoThread('sh600006,sh510050')
     #runWithThread('sh000001,sh510050')
-    inform = QuoteDiffValuesInformer('510050', [-0.008,-0.010,-0.015,-0.020,-0.025], [0.005, 0.010, 0.015], '0.0001')
-    qd = QuoteData()
-    qd.lastPrice = -0.008
-    for v in [-0.1, -0.009, -010, -0.016, -0.021, -0.026]:
-        qd.lastPrice = v
-        inform.OnRecvQuote(qd)
+
         
     

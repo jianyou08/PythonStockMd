@@ -41,7 +41,7 @@ class QuoteInformer(QuoteListener):
             low = string.atof(quoteData.lowPrice)
             high = string.atof(quoteData.highPrice)            
             if self.cmpPrice == 0.0 :
-                self.cmpPrice = string.atof(quoteData.preClose)
+                self.cmpPrice = self.preClose
             else:    
                 self.DoDifference(newPrice, low, high)
             self.lastPrice = newPrice
@@ -75,7 +75,7 @@ class QuotePercentInformer(QuoteInformer):
         self.highper = string.atof(highper)
             
     def DoDifference(self, newPrice, lowPrice, highPrice):
-        curper = (self.lastPrice - self.cmpPrice) / self.cmpPrice * 100
+        curper = (newPrice - self.cmpPrice) / self.cmpPrice * 100
         if curper <= self.lowper :
             self.playSound(-1)
         elif curper >= self.highper :
@@ -89,8 +89,8 @@ class QuoteDifferenceValueInformer(QuoteInformer):
         self.lowdiff = string.atof(lowdiff)
         self.highdiff = string.atof(highdiff)
             
-    def DoDifference(self, lastPrice, lowPrice, highPrice):
-        diffv = self.lastPrice - self.cmpPrice
+    def DoDifference(self, newPrice, lowPrice, highPrice):
+        diffv = newPrice - self.cmpPrice
         print "%.3f %.3f" % (diffv, self.lowdiff)
         if diffv <= self.lowdiff :
             self.playSound(-1)
@@ -107,24 +107,34 @@ class QuoteDiffValuesInformer(QuoteInformer):
         print self.lowDiffValues
         print self.highDiffVAlues 
             
-    def DoDifference(self, lastPrice, lowPrice, highPrice):
-        diffv = self.lastPrice - self.cmpPrice
+    def DoDifference(self, newPrice, lowPrice, highPrice):
+        diffv = newPrice - self.cmpPrice
         level = self.ComputeLevel(diffv)
         self.playSound(level)
             
     def ComputeLevel(self, diffPrice):
+        l = 0
         if diffPrice < 0:
-            i = 0
             for lv in self.lowDiffValues:
                 if diffPrice > lv:
-                    return i
-                i -= 1
+                    return l
+                l -= 1
         else:
-            i = 0
             for lv in self.highDiffVAlues:
                 if diffPrice < lv:
-                    return i
-                i += 1
-        return 0
+                    return l
+                l += 1
+        return l
 
-    
+def testQuoteDiffValuesInformer():
+    inform = QuoteDiffValuesInformer('510050', [-0.009,-0.019,-0.029], [0.009, 0.019, 0.029], '10.0')
+    qd = QuoteData()
+    qd.id = '510050'
+    qd.lastPrice = '10.0'
+    qd.preClose = '10.0'
+    qd.lowPrice = '0'
+    qd.highPrice = '0'
+    for v in ['10.001', '10.010', '10.020', '10.030', '10.040', '9.990', '9.980', '9.970', '9.960', '10.0']:
+        qd.lastPrice = v
+        inform.OnRecvQuote(qd)
+        sleep(3)
